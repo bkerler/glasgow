@@ -1,8 +1,9 @@
 import logging
 import asyncio
+import math
 from nmigen import *
 
-from ...interface.i2c_initiator import I2CInitiatorApplet
+from ...interface.i2c_initiator import I2CInitiatorApplet,I2CInitiatorSubtarget,I2CInitiatorInterface
 from ... import *
 
 
@@ -43,42 +44,70 @@ class ControlFUSB302Applet(I2CInitiatorApplet, name="control-fusb302"):
     Configure and control the FUSB302-based Glasgow USB-PD add-on
     """
 
+    __pins = ("sda", "scl", "int", "ven", "fault")
+
     @classmethod
     def add_build_arguments(cls, parser, access):
-        access._default_port = 'AB'
-        super(I2CInitiatorApplet, cls).add_build_arguments(parser, access)
-        access.add_pin_argument(parser, "scl", default=1)
+        # Skip all parent build arguments (port, pins, bitrate)
+        # The port_spec is determined dynamically from other options
+        # super().add_build_arguments(parser, access)
+        # Add the I2CInitiator pin arguments, defaults as per addon board
         access.add_pin_argument(parser, "sda", default=0)
-        access.add_pin_argument(parser, "int_n", default=2)
+        access.add_pin_argument(parser, "scl", default=1)
+        # Add an additional interrupt pin argument, default as per addon board
+        access.add_pin_argument(parser, "int", default=2)
+        # Add an additional vbus enable pin argument, default as per addon board
+        access.add_pin_argument(parser, "ven", default=3)
+        # Add an additional vbus fault pin argument, default as per addon board
+        access.add_pin_argument(parser, "fault", default=4)
+        # Add the bitrate argument, default as per addon board
         parser.add_argument(
-            "-b", "--bit-rate", metavar="FREQ", type=int, default=100,
+            "-b", "--bit-rate", metavar="FREQ", type=int, default=400,
             help="set I2C bit rate to FREQ kHz (default: %(default)s)")
-        parser.add_argument("--sbu-mapping", choices=(None, 'uart', 'i2c'), default=None,
-            help="set mux target for SBU1/SBU2")
-        parser.add_argument("--usb-mapping", choices=(None, 'uart', 'i2c', 'usb-device', 'usb-host'), default=None,
-            help="set mux target for D+/D-")
+        # Add additional arguments which are specific to the addon board
+        parser.add_argument("--sbu-type", choices=('uart', 'i2c', 'trace'), default=None,
+            help="set target for SBU1/SBU2")
+        parser.add_argument("--usb-type", choices=('uart', 'i2c', 'trace'), default=None,
+            help="set target for D+/D-")
 
 
     def build(self, target, args):
-        super().build(target, args)
-        # Do something with interrupt pin mapping in the new gateware
+        # Simple operation only requires port A
+        args.port_spec = 'A';
+        # Mapping the SBU or USB pins uses port B
+        if (args.sbu_type or args.usb_type):
+            args.port_spec = 'AB'
+        self.mux_interface = iface = target.multiplexer.claim_interface(self, args)
+        iface.add_subtarget(I2CInitiatorSubtarget(
+            pads=iface.get_pads(args, pins=self.__pins),
+            out_fifo=iface.get_out_fifo(),
+            in_fifo=iface.get_in_fifo(),
+            period_cyc=math.ceil(target.sys_clk_freq / (args.bit_rate * 1000))
+        ))
+        # TODO: Do something with interrupt pin mapping in the new gateware
 
 
     @classmethod
     def add_run_arguments(cls, parser, access):
-        # This only affects the voltage run arguments, which we override anyway.
-        # super(I2CInitiatorApplet, cls).add_run_arguments(parser, access)
+        # Skip the voltage and pulls run arguments, which we override anyway
+        # super().add_run_arguments(parser, access)
+        parser.set_defaults(pulls = False)
         def i2c_address(arg):
             return int(arg, 0)
+        # Add the I2C address of the controller, defaults to FUSB302B
         parser.add_argument(
             "--i2c-address", type=i2c_address, metavar="ADDR", default=0b0100010,
             help="I2C address of the controller (default: %(default)#02x)")
 
     async def run(self, device, args):
+        # Run port A at 5V
         await device.set_voltage('A', 5.0);
-        await device.set_voltage('B', 3.3);
-        args.__dict__['pulls'] = False;
-        i2c_iface = await super().run(device, args)
+        # Run port B at 3.3V if mapping SBU or USB
+        if (args.sbu_type or args.usb_type):
+            await device.set_voltage('B', 3.3);
+        # Claim the interface(s) needed
+        iface = await device.demultiplexer.claim_interface(self, self.mux_interface, args)
+        i2c_iface = I2CInitiatorInterface(iface, self.logger)
         return FUSB302Interface(i2c_iface, self.logger, args.i2c_address)
 
     @classmethod
