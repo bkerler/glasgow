@@ -7,29 +7,144 @@ from ...interface.i2c_initiator import I2CInitiatorApplet,I2CInitiatorSubtarget,
 from ... import *
 
 
-FUSB302_DEVICE_ID   = 0x01
-FUSB302_SWITCHES_0  = 0x02
-FUSB302_SWITCHES_1  = 0x03
+FUSB302_DEVICEID    = 0x01
+FUSB302_SWITCHES0   = 0x02
+FUSB302_SWITCHES0_CC2_PU_EN = (1<<7)
+FUSB302_SWITCHES0_CC1_PU_EN = (1<<6)
+FUSB302_SWITCHES0_VCONN_CC2 = (1<<5)
+FUSB302_SWITCHES0_VCONN_CC1 = (1<<4)
+FUSB302_SWITCHES0_MEAS_CC2 = (1<<3)
+FUSB302_SWITCHES0_MEAS_CC1 = (1<<2)
+FUSB302_SWITCHES0_CC2_PD_EN = (1<<1)
+FUSB302_SWITCHES0_CC1_PD_EN = (1<<0)
+FUSB302_SWITCHES1   = 0x03
+FUSB302_SWITCHES1_POWERROLE = (1<<7)
+FUSB302_SWITCHES1_SPECREV1 = (1<<6)
+FUSB302_SWITCHES1_SPECREV0 = (1<<5)
+FUSB302_SWITCHES1_DATAROLE = (1<<4)
+FUSB302_SWITCHES1_AUTO_GCRC = (1<<2)
+FUSB302_SWITCHES1_TXCC2_EN = (1<<1)
+FUSB302_SWITCHES1_TXCC1_EN = (1<<0)
 FUSB302_MEASURE     = 0x04
+FUSB302_MEASURE_VBUS = (1<<6)
 FUSB302_SLICE       = 0x05
-FUSB302_CONTROL_0   = 0x06
-FUSB302_CONTROL_1   = 0x07
-FUSB302_CONTROL_2   = 0x08
-FUSB302_CONTROL_3   = 0x09
-FUSB302_MASK_1      = 0x0A
+FUSB302_CONTROL0    = 0x06
+FUSB302_CONTROL0_TX_FLUSH = (1<<6)
+FUSB302_CONTROL0_INT_MASK = (1<<5)
+FUSB302_CONTROL0_HOST_CUR_MASK = (3<<2)
+FUSB302_CONTROL0_HOST_CUR_3A0 = (3<<2)
+FUSB302_CONTROL0_HOST_CUR_1A5 = (2<<2)
+FUSB302_CONTROL0_HOST_CUR_USB = (1<<2)
+FUSB302_CONTROL0_TX_START = (1<<0)
+FUSB302_CONTROL1    = 0x07
+FUSB302_CONTROL1_ENSOP2DB = (1<<6)
+FUSB302_CONTROL1_ENSOP1DB = (1<<5)
+FUSB302_CONTROL1_BIST_MODE2 = (1<<4)
+FUSB302_CONTROL1_RX_FLUSH = (1<<2)
+FUSB302_CONTROL1_ENSOP2 = (1<<1)
+FUSB302_CONTROL1_ENSOP1 = (1<<0)
+FUSB302_CONTROL2    = 0x08
+FUSB302_CONTROL2_MODE = (1<<1)
+FUSB302_CONTROL2_MODE_DFP = (0x3)
+FUSB302_CONTROL2_MODE_UFP = (0x2)
+FUSB302_CONTROL2_MODE_DRP = (0x1)
+FUSB302_CONTROL2_MODE_POS = (1)
+FUSB302_CONTROL2_TOGGLE = (1<<0)
+FUSB302_CONTROL3    = 0x09
+FUSB302_CONTROL3_SEND_HARDRESET = (1<<6)
+FUSB302_CONTROL3_BIST_TMODE = (1<<5)
+FUSB302_CONTROL3_AUTO_HARDRESET = (1<<4)
+FUSB302_CONTROL3_AUTO_SOFTRESET = (1<<3)
+FUSB302_CONTROL3_N_RETRIES = (1<<1)
+FUSB302_CONTROL3_N_RETRIES_POS = (1)
+FUSB302_CONTROL3_N_RETRIES_SIZE = (2)
+FUSB302_CONTROL3_AUTO_RETRY = (1<<0)
+FUSB302_MASK        = 0x0A
+FUSB302_MASK_VBUSOK = (1<<7)
+FUSB302_MASK_ACTIVITY = (1<<6)
+FUSB302_MASK_COMP_CHNG = (1<<5)
+FUSB302_MASK_CRC_CHK = (1<<4)
+FUSB302_MASK_ALERT = (1<<3)
+FUSB302_MASK_WAKE = (1<<2)
+FUSB302_MASK_COLLISION = (1<<1)
+FUSB302_MASK_BC_LVL = (1<<0)
 FUSB302_POWER       = 0x0B
+FUSB302_POWER_PWR = (1<<0)
+FUSB302_POWER_PWR_LOW = 0x1
+FUSB302_POWER_PWR_MEDIUM = 0x3
+FUSB302_POWER_PWR_HIGH = 0x7
+FUSB302_POWER_PWR_ALL = 0xF
 FUSB302_RESET       = 0x0C
-FUSB302_OCP_REG     = 0x0D
-FUSB302_MASK_A      = 0x0E
-FUSB302_MASK_B      = 0x0F
-FUSB302_CONTROL_4   = 0x10
-FUSB302_STATUS_0A   = 0x3C
-FUSB302_STATUS_1A   = 0x3D
-FUSB302_INTERRUPT_A = 0x3E
-FUSB302_INTERRUPT_B = 0x3F
-FUSB302_STATUS_0    = 0x40
-FUSB302_STATUS_1    = 0x41
+FUSB302_RESET_PD_RESET = (1<<1)
+FUSB302_RESET_SW_RESET = (1<<0)
+FUSB302_OCPREG      = 0x0D
+FUSB302_MASKA       = 0x0E
+FUSB302_MASKA_OCP_TEMP = (1<<7)
+FUSB302_MASKA_TOGDONE = (1<<6)
+FUSB302_MASKA_SOFTFAIL = (1<<5)
+FUSB302_MASKA_RETRYFAIL = (1<<4)
+FUSB302_MASKA_HARDSENT = (1<<3)
+FUSB302_MASKA_TX_SUCCESS = (1<<2)
+FUSB302_MASKA_SOFTRESET = (1<<1)
+FUSB302_MASKA_HARDRESET = (1<<0)
+FUSB302_MASKB       = 0x0F
+FUSB302_MASKB_GCRCSENT = (1<<0)
+FUSB302_CONTROL4    = 0x10
+FUSB302_STATUS0A    = 0x3C
+FUSB302_STATUS0A_SOFTFAIL = (1<<5)
+FUSB302_STATUS0A_RETRYFAIL = (1<<4)
+FUSB302_STATUS0A_POWER = (1<<2)
+FUSB302_STATUS0A_RX_SOFT_RESET = (1<<1)
+FUSB302_STATUS0A_RX_HARD_RESET = (1<<0)
+FUSB302_STATUS1A    = 0x3D
+FUSB302_STATUS1A_TOGSS = (1<<3)
+FUSB302_STATUS1A_TOGSS_RUNNING = 0x0
+FUSB302_STATUS1A_TOGSS_SRC1 = 0x1
+FUSB302_STATUS1A_TOGSS_SRC2 = 0x2
+FUSB302_STATUS1A_TOGSS_SNK1 = 0x5
+FUSB302_STATUS1A_TOGSS_SNK2 = 0x6
+FUSB302_STATUS1A_TOGSS_AA = 0x7
+FUSB302_STATUS1A_TOGSS_POS = (3)
+FUSB302_STATUS1A_TOGSS_MASK = (0x7)
+FUSB302_STATUS1A_RXSOP2DB = (1<<2)
+FUSB302_STATUS1A_RXSOP1DB = (1<<1)
+FUSB302_STATUS1A_RXSOP = (1<<0)
+FUSB302_INTERRUPTA  = 0x3E
+FUSB302_INTERRUPTA_OCP_TEMP = (1<<7)
+FUSB302_INTERRUPTA_TOGDONE = (1<<6)
+FUSB302_INTERRUPTA_SOFTFAIL = (1<<5)
+FUSB302_INTERRUPTA_RETRYFAIL = (1<<4)
+FUSB302_INTERRUPTA_HARDSENT = (1<<3)
+FUSB302_INTERRUPTA_TX_SUCCESS = (1<<2)
+FUSB302_INTERRUPTA_SOFTRESET = (1<<1)
+FUSB302_INTERRUPTA_HARDRESET = (1<<0)
+FUSB302_INTERRUPTB  = 0x3F
+FUSB302_INTERRUPTB_GCRCSENT = (1<<0)
+FUSB302_STATUS0     = 0x40
+FUSB302_STATUS0_VBUSOK = (1<<7)
+FUSB302_STATUS0_ACTIVITY = (1<<6)
+FUSB302_STATUS0_COMP = (1<<5)
+FUSB302_STATUS0_CRC_CHK = (1<<4)
+FUSB302_STATUS0_ALERT = (1<<3)
+FUSB302_STATUS0_WAKE = (1<<2)
+FUSB302_STATUS0_BC_LVL1 = (1<<1)
+FUSB302_STATUS0_BC_LVL0 = (1<<0)
+FUSB302_STATUS1     = 0x41
+FUSB302_STATUS1_RXSOP2 = (1<<7)
+FUSB302_STATUS1_RXSOP1 = (1<<6)
+FUSB302_STATUS1_RX_EMPTY = (1<<5)
+FUSB302_STATUS1_RX_FULL = (1<<4)
+FUSB302_STATUS1_TX_EMPTY = (1<<3)
+FUSB302_STATUS1_TX_FULL = (1<<2)
 FUSB302_INTERRUPT   = 0x42
+FUSB302_INTERRUPT_VBUSOK = (1<<7)
+FUSB302_INTERRUPT_ACTIVITY = (1<<6)
+FUSB302_INTERRUPT_COMP_CHNG = (1<<5)
+FUSB302_INTERRUPT_CRC_CHK = (1<<4)
+FUSB302_INTERRUPT_ALERT = (1<<3)
+FUSB302_INTERRUPT_WAKE = (1<<2)
+FUSB302_INTERRUPT_COLLISION = (1<<1)
+FUSB302_INTERRUPT_BC_LVL = (1<<0)
 FUSB302_FIFOS       = 0x43
 
 
@@ -135,34 +250,96 @@ class FUSB302Interface:
         return await self._check(self.mask_write(addr, bits, 0))
 
 
-    async def initialise(self):
-        # fusb302_sw_reset()
+    async def auto_goodcrc_enable(self, enable):
+        if (enable):
+            await self.mask_write(FUSB302_SWITCHES1, 0x64, 0x04)
+        else:
+            await self.mask_write(FUSB302_SWITCHES1, 0x64, 0x00)
+
+
+    async def tcpm_init(self):
+        # Restore default settings
         await self.set_bits(FUSB302_RESET, 0x01)
-        # fusb302_enable_tx_auto_retries(3)
-        await self.set_bits(FUSB302_CONTROL_3, (3 << 1) | 1)
-        # fusb302_init_interrupt()
-        # fusb302_set_power_mode(0xF)
+        # Read the device ID
+        await self.read(FUSB302_DEVICEID)
+        # Turn on retries and set number of retries
+        await self.set_bits(FUSB302_CONTROL3, (3 << 1) | 1)
+        # VBUSOK, BC_LVL, COLLISION, ALERT, CRC_CHK
+        await self.write(FUSB302_MASK, 0x64)
+        # RETRYFAIL, HARDSENT, TX_SUCCESS, HARDRESET
+        await self.write(FUSB302_MASKA, 0xE2)
+        # GCRCSENT
+        await self.write(FUSB302_MASKB, 0xFE)
+        # Interrupt Enable
+        await self.clear_bits(FUSB302_CONTROL0, 0x20)
+        # RX_FLUSH, ENSOP1DB, ENSOP2DB
+        await self.write(FUSB302_CONTROL1, 0x64)
+        # Disable GoodCRC
+        await self.auto_goodcrc_enable(False)
+        # Turn on the power!
         await self.write(FUSB302_POWER, 0x0F)
 
 
-    async def set_toggling(self, mode):
-        await self.clear_bits(FUSB302_CONTROL_2, 0x01)
-        await self.set_bits(FUSB302_MASK_1, 0x21)
-        if (mode == 'none'):
-            await self.mask_write(FUSB302_CONTROL_2, 0x06, 0x00)
-            await self.set_bits(FUSB302_MASK_A, 0x40)
-        if (mode == 'drp'):
-            await self.mask_write(FUSB302_CONTROL_2, 0x06, 0x02)
-            await self.clear_bits(FUSB302_MASK_A, 0x40)
-            await self.set_bits(FUSB302_CONTROL_2, 0x01)
-        if (mode == 'snk'):
-            await self.mask_write(FUSB302_CONTROL_2, 0x06, 0x04)
-            await self.clear_bits(FUSB302_MASK_A, 0x40)
-            await self.set_bits(FUSB302_CONTROL_2, 0x01)
-        if (mode == 'src'):
-            await self.mask_write(FUSB302_CONTROL_2, 0x06, 0x06)
-            await self.clear_bits(FUSB302_MASK_A, 0x40)
-            await self.set_bits(FUSB302_CONTROL_2, 0x01)
+    async def pd_reset(self):
+        # PD_RESET
+        await self.write(FUSB302_RESET, 0x02)
+
+
+    async def tcpm_set_rx_enable(self, enable):
+        if (enable == False):
+            # Clear CC1/CC2 measure bits
+            await self.clear_bits(FUSB302_SWITCHES0, 0x0C)
+            # Enable BC_LVL interrupt when disabling PD comm
+            await self.clear_bits(FUSB302_MASK, 0x01)
+        else:
+            await self.mask_write(FUSB302_SWITCHES0, 0x0C, 0x04)
+            # Disable BC_LVL interrupt when enabling PD comm
+            await self.set_bits(FUSB302_MASK, 0x01)
+            # flush rx fifo in case messages have been coming our way
+            await self.set_bits(FUSB302_CONTROL1, 0x04)
+        await self.auto_goodcrc_enable(enable)
+
+
+    async def rx_fifo_is_empty(self):
+        reg = await self.read(FUSB302_STATUS1)
+        return (reg & FUSB302_STATUS1_RX_EMPTY)
+
+
+    async def tcpm_get_vbus_level(self):
+        reg = await self.read(FUSB302_STATUS0);
+        return True if (reg & FUSB302_STATUS0_VBUSOK) else False;
+
+
+    async def setup(self):
+        await self.tcpm_init()
+        await self.pd_reset()
+        await self.tcpm_set_rx_enable(False)
+        # await self.tcpm_set_cc('open')
+        return await self.read(FUSB302_STATUS0)
+            
+
+    async def handle_irq(self):
+        irq = await self.read(FUSB302_INTERRUPT)
+        irqa = await self.read(FUSB302_INTERRUPTA)
+        irqb = await self.read(FUSB302_INTERRUPTB)
+        if (irq & FUSB302_INTERRUPT_VBUSOK):
+            if (await self.tcpm_get_vbus_level()):
+                self._logger.info("IRQ: VBUSOK (VBUS=ON)")
+                # self.evt_connect()
+                pass
+            else:
+                self._logger.info("IRQ: VBUSOK (VBUS=OFF)")
+                # self.evt_disconnect()
+                pass
+        if (irqa & FUSB302_INTERRUPTA_HARDRESET):
+            self._logger.info("IRQ: HARDRESET")
+            # self.evt_disconnect()
+            pass
+        if (irqb & FUSB302_INTERRUPTB_GCRCSENT):
+            self._logger.info("IRQ: GCRCSENT")
+            while (self.rx_fifo_is_empty() == 0):
+                # self.evt_packet()
+                pass
 
 
 class ControlFUSB302Applet(I2CInitiatorApplet, name="control-fusb302"):
@@ -175,30 +352,30 @@ class ControlFUSB302Applet(I2CInitiatorApplet, name="control-fusb302"):
     __pins = ("sda", "scl", "int", "ven", "fault")
 
     __registers = {
-        FUSB302_DEVICE_ID:   "DeviceID",
-        FUSB302_SWITCHES_0:  "Switches0",
-        FUSB302_SWITCHES_1:  "Switches1",
-        FUSB302_MEASURE:     "Measure",
-        FUSB302_SLICE:       "Slice",
-        FUSB302_CONTROL_0:   "Control0",
-        FUSB302_CONTROL_1:   "Control1",
-        FUSB302_CONTROL_2:   "Control2",
-        FUSB302_CONTROL_3:   "Control3",
-        FUSB302_MASK_1:      "Mask1",
-        FUSB302_POWER:       "Power",
-        FUSB302_RESET:       "Reset",
-        FUSB302_OCP_REG:     "OCPreg",
-        FUSB302_MASK_A:      "MaskA",
-        FUSB302_MASK_B:      "MaskB",
-        FUSB302_CONTROL_4:   "Control4",
-        FUSB302_STATUS_0A:   "Status0A",
-        FUSB302_STATUS_1A:   "Status1A",
-        FUSB302_INTERRUPT_A: "InterruptA",
-        FUSB302_INTERRUPT_B: "InterruptB",
-        FUSB302_STATUS_0:    "Status0",
-        FUSB302_STATUS_1:    "Status1",
-        FUSB302_INTERRUPT:   "Interrupt",
-        FUSB302_FIFOS:       "FIFOs",
+        FUSB302_DEVICEID:   "DeviceID",
+        FUSB302_SWITCHES0:  "Switches0",
+        FUSB302_SWITCHES1:  "Switches1",
+        FUSB302_MEASURE:    "Measure",
+        FUSB302_SLICE:      "Slice",
+        FUSB302_CONTROL0:   "Control0",
+        FUSB302_CONTROL1:   "Control1",
+        FUSB302_CONTROL2:   "Control2",
+        FUSB302_CONTROL3:   "Control3",
+        FUSB302_MASK:       "Mask",
+        FUSB302_POWER:      "Power",
+        FUSB302_RESET:      "Reset",
+        FUSB302_OCPREG:     "OCPreg",
+        FUSB302_MASKA:      "MaskA",
+        FUSB302_MASKB:      "MaskB",
+        FUSB302_CONTROL4:   "Control4",
+        FUSB302_STATUS0A:   "Status0A",
+        FUSB302_STATUS1A:   "Status1A",
+        FUSB302_INTERRUPTA: "InterruptA",
+        FUSB302_INTERRUPTB: "InterruptB",
+        FUSB302_STATUS0:    "Status0",
+        FUSB302_STATUS1:    "Status1",
+        FUSB302_INTERRUPT:  "Interrupt",
+        FUSB302_FIFOS:      "FIFOs",
     }
 
 
@@ -354,8 +531,14 @@ class ControlFUSB302Applet(I2CInitiatorApplet, name="control-fusb302"):
         p_hard_reset = p_operation.add_parser(
             "hard-reset", help="send a HardReset")
 
-        p_init = p_operation.add_parser(
-            "init", help="initialise the controller")
+        p_tcpm_init = p_operation.add_parser(
+            "tcpm-init", help="initialise the controller")
+
+        p_setup = p_operation.add_parser(
+            "setup", help="setup the controller")
+
+        p_handle_irq = p_operation.add_parser(
+            "handle-irq", help="handle interrupts")
 
         p_set_toggling = p_operation.add_parser(
             "set-toggling", help="set toggling mode")
@@ -396,13 +579,19 @@ class ControlFUSB302Applet(I2CInitiatorApplet, name="control-fusb302"):
             await fusb302_iface.set_bits(FUSB302_RESET, 0x01)
 
         if (args.operation == "pd-reset"):
-            await fusb302_iface.set_bits(FUSB302_RESET, 0x02)
+            await fusb302_iface.pd_reset()
 
         if (args.operation == "hard-reset"):
-            await fusb302_iface.set_bits(FUSB302_CONTROL_3, 0x40)
+            await fusb302_iface.set_bits(FUSB302_CONTROL3, 0x40)
 
-        if (args.operation == "init"):
-            await fusb302_iface.initialise()
+        if (args.operation == "tcpm-init"):
+            await fusb302_iface.tcpm_init()
+
+        if (args.operation == "setup"):
+            await fusb302_iface.setup()
+
+        if (args.operation == "handle-irq"):
+            await fusb302_iface.handle_irq()
 
         if (args.operation == "set-toggling"):
             await fusb302_iface.set_toggling(args.mode)
