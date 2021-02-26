@@ -341,6 +341,12 @@ class FUSB302Interface:
                 # self.evt_packet()
                 pass
 
+    async def status(self):
+        status0 = await self.read(FUSB302_STATUS0)
+        status1 = await self.read(FUSB302_STATUS1)
+        status0a = await self.read(FUSB302_STATUS0A)
+        status1a = await self.read(FUSB302_STATUS1A)
+
 
 class ControlFUSB302Applet(I2CInitiatorApplet, name="control-fusb302"):
     logger = logging.getLogger(__name__)
