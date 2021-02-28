@@ -187,6 +187,15 @@ TCPC_REG_INTERRUPT_BC_LVL = (1<<0)
 
 TCPC_REG_FIFOS       = 0x43
 
+TCPC_TX_SOP = 0
+TCPC_TX_SOP_PRIME = 1
+TCPC_TX_SOP_PRIME_PRIME = 2
+TCPC_TX_SOP_DEBUG_PRIME = 3
+TCPC_TX_SOP_DEBUG_PRIME_PRIME = 4
+TCPC_TX_HARD_RESET = 5
+TCPC_TX_CABLE_RESET = 6
+TCPC_TX_BIST_MODE_2 = 7
+
 FUSB302_TKN_TXON = 0xA1
 FUSB302_TKN_SYNC1 = 0x12
 FUSB302_TKN_SYNC2 = 0x13
@@ -197,6 +206,13 @@ FUSB302_TKN_PACKSYM = 0x80
 FUSB302_TKN_JAMCRC = 0xFF
 FUSB302_TKN_EOP = 0x14
 FUSB302_TKN_TXOFF = 0xFE
+
+FUSB302_TKN_SOP = 0xE0
+FUSB302_TKN_SOP1 = 0xC0
+FUSB302_TKN_SOP2 = 0xA0
+FUSB302_TKN_SOP1DB = 0x80
+FUSB302_TKN_SOP2DB = 0x60
+FUSB302_TKN_SOP_MASK = 0xE0
         
 PD_SRC_DEF_VNC = ((1600//42) & 0x3F)
 PD_SRC_1_5_VNC = ((1600//42) & 0x3F)
@@ -204,6 +220,43 @@ PD_SRC_3_0_VNC = ((2600//42) & 0x3F)
 PD_SRC_DEF_RD_THRESH = ((200//42) & 0x3F)
 PD_SRC_1_5_RD_THRESH = ((400//42) & 0x3F)
 PD_SRC_3_0_RD_THRESH = ((800//42) & 0x3F)
+
+PD_CTRL_GOOD_CRC = 1
+PD_CTRL_GOTO_MIN = 2
+PD_CTRL_ACCEPT = 3
+PD_CTRL_REJECT = 4
+PD_CTRL_PING = 5
+PD_CTRL_PS_RDY = 6
+PD_CTRL_GET_SOURCE_CAP = 7
+PD_CTRL_GET_SINK_CAP = 8
+PD_CTRL_DR_SWAP = 9
+PD_CTRL_PR_SWAP = 10
+PD_CTRL_VCONN_SWAP = 11
+PD_CTRL_WAIT = 12
+PD_CTRL_SOFT_RESET = 13
+# 14-15 Reserved
+# Used for REV 3.0
+PD_CTRL_NOT_SUPPORTED = 16
+PD_CTRL_GET_SOURCE_CAP_EXT = 17
+PD_CTRL_GET_STATUS = 18
+PD_CTRL_FR_SWAP = 19
+PD_CTRL_GET_PPS_STATUS = 20
+PD_CTRL_GET_COUNTRY_CODES = 21
+
+PD_DATA_SOURCE_CAP = 1
+PD_DATA_REQUEST = 2
+PD_DATA_BIST = 3
+PD_DATA_SINK_CAP = 4
+# 5-14 Reserved for REV 2.0
+PD_DATA_BATTERY_STATUS = 5
+PD_DATA_ALERT = 6
+PD_DATA_GET_COUNTRY_INFO = 7
+# 8-14 Reserved for REV 3.0
+PD_DATA_VENDOR_DEF = 15
+
+PD_REV10 = 0
+PD_REV20 = 1
+PD_REV30 = 2
 
 TYPEC_CC_VOLT_OPEN = 0
 TYPEC_CC_VOLT_RA = 1
@@ -242,7 +295,7 @@ class FUSB302Interface:
             raise FUSB302Error("FUSB302 did not acknowledge command")
         return result
 
-    async def block_write(self, addr, data):
+    async def write_block(self, addr, data):
         data = bytes(data)
 
         self._logger.log(self._level, "FUSB302: addr=%s write=<%s>",
@@ -268,10 +321,10 @@ class FUSB302Interface:
 
 
     async def write(self, addr, data):
-        return await self.block_write(addr, [data])
+        return await self.write_block(addr, [data])
 
 
-    async def block_read(self, addr, size):
+    async def read_block(self, addr, size):
         self._logger.log(self._level, "FUSB302: addr=%s read=%d",
                          hex(addr), size)
 
@@ -292,28 +345,85 @@ class FUSB302Interface:
         # Check the ACK of the slave address and register address write
         unacked, = await self.lower._data_read(1)
         if unacked != 0:
-            await self.lower._cmd_stop()
-            self._logger.log(self._level, "FUSB302: unacked register address write")
+            self._logger.log(self._level, "FUSB302: unacked slave and register address write")
             return None
 
-        # Check the ACK of the slave address and register data read
+        # Check the ACK of the slave address write and register data read
         unacked, = await self.lower._data_read(1)
         data = await self.lower._data_read(size)
-        if unacked == 0:
-            self._logger.log(self._level, "FUSB302: acked data=<%s>", data.hex())
-            return data
-        else:
+        if unacked != 0:
             self._logger.log(self._level, "FUSB302: unacked data read")
             return None
 
+        self._logger.log(self._level, "FUSB302: acked data=<%s>", data.hex())
+        return data
+
 
     async def read(self, addr):
-        data = await self._check(self.block_read(addr, 1))
-        return data[0]
+        data = await self._check(self.read_block(addr, 1))
+        return None if data == None else data[0]
 
 
+    async def read_msg(self):
+        addr = TCPC_REG_FIFOS
+        size = 3
+        await self.lower._cmd_start()
+        await self.lower._cmd_count(2)
+        await self.lower._cmd_write()
+        await self.lower._data_write([(self._i2c_addr << 1) | 0])
+        await self.lower._data_write([addr])
+        await self.lower._cmd_start()
+        await self.lower._cmd_count(1)
+        await self.lower._cmd_write()
+        await self.lower._data_write([(self._i2c_addr << 1) | 1])
+        await self.lower._cmd_count(size)
+        await self.lower._cmd_read()
+
+        # Check the ACK of the slave address and register address write
+        unacked, = await self.lower._data_read(1)
+        if unacked != 0:
+            await self.lower._cmd_stop()
+            self._logger.log(self._level, "FUSB302: unacked slave and register address write")
+            return (None,None,None)
+
+        # Check the ACK of the slave address and register data read
+        unacked, = await self.lower._data_read(1)
+        if unacked != 0:
+            await self.lower._cmd_stop()
+            self._logger.log(self._level, "FUSB302: unacked data read")
+            return (None,None,None)
+
+        buf = await self.lower._data_read(size)
+
+        # Grab the header
+        sop = buf[0] & FUSB302_TKN_SOP_MASK
+        head = (buf[1] & 0xFF)
+        head |= ((buf[2] << 8) & 0xFF00)
+        len = ((head >> 12) & 7) * 4
+        self._logger.info("MSG: sop = %02X, head = %04X, len = %d", sop, head, len)
+
+        await self.lower._cmd_start()
+        await self.lower._cmd_count(1)
+        await self.lower._cmd_write()
+        await self.lower._data_write([(self._i2c_addr << 1) | 1])
+        await self.lower._cmd_count(len)
+        await self.lower._cmd_read()
+        await self.lower._cmd_stop()
+
+        # Check the ACK of the slave address and register data read
+        unacked, = await self.lower._data_read(1)
+        if unacked != 0:
+            await self.lower._cmd_stop()
+            self._logger.log(self._level, "FUSB302: unacked data read")
+            return (None,None,None)
+
+        buf = await self.lower._data_read(len)
+        return (sop,head,buf)
+
+    
     async def mask_write(self, addr, mask, value):
         data = await self._check(self.read(addr))
+        if (data == None): return None
         data &= ~mask
         data |= value
         return await self._check(self.write(addr, data))
@@ -327,6 +437,48 @@ class FUSB302Interface:
         return await self._check(self.mask_write(addr, bits, 0))
 
 
+    async def write_msg(self, header, data, sop):
+        self._logger.info("WRITE_MSG: start")
+        addr = TCPC_REG_FIFOS
+
+        reg = FUSB302_TKN_PACKSYM
+        reg |= (self._get_num_bytes(header) & 0x1F)
+
+        payload = []
+        payload.extend(sop)
+        payload.extend([reg, header & 0xFF, header >> 8])
+        self._logger.info("WRITE_MSG: data = %s", data)
+        for word in data:
+            self._logger.info("WRITE_MSG: word = %04X", word)
+            payload.append(word & 0xFF)
+            payload.append((word >> 8) & 0xFF)
+            payload.append((word >> 16) & 0xFF)
+            payload.append((word >> 24) & 0xFF)
+        payload.append(FUSB302_TKN_JAMCRC)
+        payload.append(FUSB302_TKN_EOP)
+        payload.append(FUSB302_TKN_TXOFF)
+        payload.append(FUSB302_TKN_TXON)
+        self._logger.info("WRITE_MSG: payload = %s", payload)
+
+        # Perform the whole write/read transaction in one chunk, assuming success
+        await self.lower._cmd_start()
+        await self.lower._cmd_count(2 + len(payload))
+        await self.lower._cmd_write()
+        await self.lower._data_write([(self._i2c_addr << 1) | 0])
+        await self.lower._data_write([addr])
+        await self.lower._data_write(payload)
+        await self.lower._cmd_stop()
+
+        unacked, = await self.lower._data_read(1)
+        acked = len(data) - unacked
+        if unacked == 0:
+            self._logger.log(self._level, "FUSB302: acked=%d", acked)
+        else:
+            self._logger.log(self._level, "FUSB302: unacked=%d", unacked)
+
+        return unacked == 0
+
+    
     def platform_usleep(self, us):
         time.sleep(us/1000000)
 
@@ -457,14 +609,12 @@ class FUSB302Interface:
         
         
     def _get_num_bytes(self, header):
-        # TBD
-        fail
+        return ((((header) >> 12) & 7) * 4) + 2
 
 
-    async def fusb302_send_message(self, header, data, buf, buf_pos):
-        # TBD
-        fail
-
+    async def fusb302_send_message(self, header, data, sop):
+        await self.write_msg(header, data, sop)
+        
 
     async def fusb302_tcpm_select_rp_value(self, rp):
         # TBD
@@ -472,7 +622,11 @@ class FUSB302Interface:
 
 
     async def fusb302_tcpm_init(self):
+
+        self._state = STATE_INVALID
+
         # set default
+        self._msgid = 0
         self._cc_polarity = -1
 
         # set the voltage threshold for no connect detection (vOpen)
@@ -647,14 +801,33 @@ class FUSB302Interface:
         return (reg & TCPC_REG_STATUS1_RX_EMPTY)
 
 
-    async def fusb302_tcpm_get_message_raw(self, payload, head):
-        # TBD
-        fail
+    async def fusb302_tcpm_get_message(self):
+        # If our FIFO is empty then we have no packet
+        if (await self.fusb302_rx_fifo_is_empty()):
+            return None
+        while (True):
+            sop, head, buf = await self.read_msg()
+            # Break if no message found
+            if (sop == None): break
+            # Break if not GoodCRC
+            if (((head & 0x1F) != PD_CTRL_GOOD_CRC) or (((head >> 12) & 7) != 0)): break
+            # Break if FIFO is empty
+            if (await self.fusb302_rx_fifo_is_empty()): break
+        return (sop, head, buf)
 
         
     async def fusb302_tcpm_transmit(self, type, header, data):
-        # TBD
-        fail
+        await self.fusb302_flush_tx_fifo()
+        header |= (self._msgid << 9)
+        self._msgid += 1
+        self._msgid &= 0x7;
+
+        if (type == TCPC_TX_SOP):
+            sop = [FUSB302_TKN_SYNC1, FUSB302_TKN_SYNC1, FUSB302_TKN_SYNC1, FUSB302_TKN_SYNC2]
+            await self.fusb302_send_message(header, data, sop)
+            return 0
+        else:
+            return 1
 
         
     async def fusb302_tcpm_check_vbus_level(self, level):
@@ -697,21 +870,13 @@ class FUSB302Interface:
         return True if (reg & TCPC_REG_STATUS0_VBUSOK) else False;
 
 
-    async def setup(self):
-        await self.fusb302_tcpm_init()
-        await self.fusb302_pd_reset()
-        await self.fusb302_tcpm_set_rx_enable(0)
-        await self.fusb302_tcpm_set_cc(TYPEC_CC_OPEN)
-        data = await self.read(TCPC_REG_STATUS0)
-        self._logger.info("STATUS0: %02X", data)
-            
-
     async def vbus_off(self):
         # TBD
         pass
     
 
     async def evt_disconnect(self):
+        self._logger.info("DEF: evt_disconnect")
         await self.vbus_off()
         await self.fusb302_pd_reset()
         await self.fusb302_tcpm_set_rx_enable(0)
@@ -721,6 +886,7 @@ class FUSB302Interface:
 
         
     async def evt_connect(self):
+        self._logger.info("DEF: evt_connect")
         cc1,cc2 = await self.fusb302_tcpm_get_cc()
         self._logger.info("CC: cc1=%d cc2=%d", cc1, cc2)
         await self.fusb302_pd_reset()
@@ -736,15 +902,49 @@ class FUSB302Interface:
         self._logger.info("S: CONNECTED")
 
         
+    def PD_HEADER(self, type, prole, drole, id, cnt, rev, ext):
+        return ((type) | ((rev) << 6) |
+                ((drole) << 5) | ((prole) << 8) |
+                ((id) << 9) | ((cnt) << 12) | ((ext) << 15))
+
+        
+    async def send_power_request(self, cap):
+        hdr = self.PD_HEADER(PD_DATA_REQUEST, 0, 0, 0, 1, PD_REV20, 0)
+        req = ((1<<28) | # Object position (fixed 5V)
+               (1<<25) | # USB communications capable
+               (0<<10) | # 0mA operating
+               (0<<0))   # 0mA max
+        self._logger.info("POWER_REQ: req = %s", req)
+        await self.fusb302_tcpm_transmit(TCPC_TX_SOP, hdr, [req]);
+        self._logger.info(">REQUEST")
+
+
+    async def handle_msg(self, sop, hdr, msg):
+        len = (((hdr) >> 12) & 7)
+        type = ((hdr) & 0x1F)
+        if (len != 0):
+            if (type == PD_DATA_SOURCE_CAP):
+                self._logger.info("<SOURCE_CAP: %08X", msg[0])
+                await self.send_power_request(msg[0]);
+            else:
+                self._logger.info("<UNK DATA: %02X", type)
+        else:
+            self._logger.info("<UNK CTRL: %02X", type)
+
+
     async def evt_packet(self):
-        # TBD
-        fail
+        self._logger.info("DEF: evt_packet")
+        sop,hdr,msg = await self.fusb302_tcpm_get_message()
+        if (sop == None): return
+        await self.handle_msg(sop, hdr, msg)
 
         
     async def handle_irq(self):
+        # self._logger.info("DEF: handle_irq")
         irq = await self.read(TCPC_REG_INTERRUPT)
         irqa = await self.read(TCPC_REG_INTERRUPTA)
         irqb = await self.read(TCPC_REG_INTERRUPTB)
+        if ((irq == 0) and (irqa == 0) and (irqb == 0)): return False
         if (irq & TCPC_REG_INTERRUPT_VBUSOK):
             if (await self.tcpm_get_vbus_level()):
                 self._logger.info("IRQ: VBUSOK (VBUS=ON)")
@@ -759,6 +959,7 @@ class FUSB302Interface:
             self._logger.info("IRQ: GCRCSENT")
             while (await self.fusb302_rx_fifo_is_empty() == 0):
                 await self.evt_packet()
+        return True
 
     async def status(self):
         status0 = await self.read(TCPC_REG_STATUS0)
@@ -767,6 +968,21 @@ class FUSB302Interface:
         status1a = await self.read(TCPC_REG_STATUS1A)
 
 
+    async def connect_snk(self):
+        self._logger.info("DEF: connect_snk")
+        await self.fusb302_tcpm_init()
+        await self.fusb302_pd_reset()
+        await self.fusb302_tcpm_set_rx_enable(0)
+        await self.fusb302_tcpm_set_cc(TYPEC_CC_OPEN)
+        # Wait for events to flush
+        while (await self.handle_irq()): pass
+        # Setup for sink connection
+        await self.evt_disconnect()
+        # Wait for source to connect
+        while (self._state == STATE_DISCONNECTED): await self.handle_irq()
+        # Wait for source to send Source Caps
+        while (True): await self.handle_irq()
+
 class ControlFUSB302Applet(I2CInitiatorApplet, name="control-fusb302"):
     logger = logging.getLogger(__name__)
     help = "configure FUSB302 USB-PD add-on"
@@ -774,7 +990,7 @@ class ControlFUSB302Applet(I2CInitiatorApplet, name="control-fusb302"):
     Configure and control the FUSB302-based Glasgow USB-PD add-on
     """
 
-    __pins = ("sda", "scl", "int", "ven", "fault")
+    _polling_period = 0.1
 
     __registers = {
         TCPC_REG_DEVICE_ID:  "DeviceID",
@@ -835,9 +1051,12 @@ class ControlFUSB302Applet(I2CInitiatorApplet, name="control-fusb302"):
         # Mapping the SBU or USB pins uses port B
         if (args.sbu_type or args.usb_type):
             args.port_spec = 'AB'
+
+        alert, self.__addr_alert = target.registers.add_ro(1)
+
         self.mux_interface = iface = target.multiplexer.claim_interface(self, args)
         iface.add_subtarget(I2CInitiatorSubtarget(
-            pads=iface.get_pads(args, pins=self.__pins),
+            pads=iface.get_pads(args, pins=("sda", "scl")),
             out_fifo=iface.get_out_fifo(),
             in_fifo=iface.get_in_fifo(),
             period_cyc=math.ceil(target.sys_clk_freq / (args.bit_rate * 1000))
@@ -887,12 +1106,12 @@ class ControlFUSB302Applet(I2CInitiatorApplet, name="control-fusb302"):
             "address", metavar="ADDRESS", type=register,
             help="register address")
 
-        p_block_read = p_operation.add_parser(
-            "block-read", help="read register block")
-        p_block_read.add_argument(
+        p_read_block = p_operation.add_parser(
+            "read-block", help="read register block")
+        p_read_block.add_argument(
             "address", metavar="ADDRESS", type=register,
             help="register address")
-        p_block_read.add_argument(
+        p_read_block.add_argument(
             "size", metavar="SIZE", type=byte,
             help="number of bytes to read")
 
@@ -905,12 +1124,12 @@ class ControlFUSB302Applet(I2CInitiatorApplet, name="control-fusb302"):
             "data", metavar="DATA", type=byte,
             help="data to write")
 
-        p_block_write = p_operation.add_parser(
-            "block-write", help="write register block")
-        p_block_write.add_argument(
+        p_write_block = p_operation.add_parser(
+            "write-block", help="write register block")
+        p_write_block.add_argument(
             "address", metavar="ADDRESS", type=register,
             help="register address")
-        p_block_write.add_argument(
+        p_write_block.add_argument(
             "data", metavar="DATA", type=hex_bytes,
             help="data to write, as hex bytes")
 
@@ -959,8 +1178,8 @@ class ControlFUSB302Applet(I2CInitiatorApplet, name="control-fusb302"):
         p_tcpm_init = p_operation.add_parser(
             "tcpm-init", help="initialise the controller")
 
-        p_setup = p_operation.add_parser(
-            "setup", help="setup the controller")
+        p_connect_snk = p_operation.add_parser(
+            "connect-snk", help="connect as sink")
 
         p_handle_irq = p_operation.add_parser(
             "handle-irq", help="handle interrupts")
@@ -971,52 +1190,75 @@ class ControlFUSB302Applet(I2CInitiatorApplet, name="control-fusb302"):
                                     help="toggle mode")
 
 
-    async def interact(self, device, args, fusb302_iface):
+    async def _monitor_alert(self, device, iface):
+        while True:
+            #alert = await device.read_register(self.__addr_alert, width=1)
+            alert = 0
+            if (alert):
+                await iface.handle_irq()
+            await asyncio.sleep(self._polling_period)
+
+        
+    async def repl(self, device, args, iface):
+
+        await iface.connect_snk()
+        self._polling_period = 1
+        asyncio.create_task(self._monitor_alert(device, iface))
+
+        await super().repl(device, args, iface)
+
+
+    async def interact(self, device, args, iface):
+
+        # await iface.connect_snk()
+        # self._polling_period = 1
+        # asyncio.create_task(self._monitor_alert(device, iface))
+
         if (args.operation == "read"):
-            data = await fusb302_iface.read(args.address)
+            data = await iface.read(args.address)
             print(data.hex())
 
-        if (args.operation == "block-read"):
-            data = await fusb302_iface.block_read(args.address, args.size)
+        if (args.operation == "read-block"):
+            data = await iface.read_block(args.address, args.size)
             print(data.hex())
 
         if (args.operation == "write"):
-            await fusb302_iface.write(args.address, args.data)
+            await iface.write(args.address, args.data)
 
-        if (args.operation == "block-write"):
-            await fusb302_iface.block_write(args.address, args.data)
+        if (args.operation == "write-block"):
+            await iface.write_block(args.address, args.data)
 
         if (args.operation == "mask-write"):
-            await fusb302_iface.mask_write(args.address, args.mask, args.data)
+            await iface.mask_write(args.address, args.mask, args.data)
 
         if (args.operation == "set-bits"):
-            await fusb302_iface.set_bits(args.address, args.bits)
+            await iface.set_bits(args.address, args.bits)
 
         if (args.operation == "clear-bits"):
-            await fusb302_iface.clear_bits(args.address, args.bits)
+            await iface.clear_bits(args.address, args.bits)
 
         if (args.operation == "read-all"):
             for address in self.__registers.keys():
                 print("{:11s}[{:02X}]: {:02X}"
-                      .format(self.__registers[address], address, (await fusb302_iface.read(address))))
+                      .format(self.__registers[address], address, (await iface.read(address))))
 
         if (args.operation == "sw-reset"):
-            await fusb302_iface.set_bits(TCPC_REG_RESET, 0x01)
+            await iface.set_bits(TCPC_REG_RESET, 0x01)
 
         if (args.operation == "pd-reset"):
-            await fusb302_iface.fusb302_pd_reset()
+            await iface.fusb302_pd_reset()
 
         if (args.operation == "hard-reset"):
-            await fusb302_iface.fusb302_hard_reset()
+            await iface.fusb302_hard_reset()
 
         if (args.operation == "tcpm-init"):
-            await fusb302_iface.tcpm_init()
+            await iface.tcpm_init()
 
-        if (args.operation == "setup"):
-            await fusb302_iface.setup()
+        if (args.operation == "connect-snk"):
+            await iface.connect_snk()
 
         if (args.operation == "handle-irq"):
-            await fusb302_iface.handle_irq()
+            await iface.handle_irq()
 
         if (args.operation == "set-toggling"):
-            await fusb302_iface.set_toggling(args.mode)
+            await iface.set_toggling(args.mode)
