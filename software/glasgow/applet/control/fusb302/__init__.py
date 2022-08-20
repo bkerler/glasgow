@@ -234,25 +234,38 @@ PD_CTRL_PR_SWAP = 10
 PD_CTRL_VCONN_SWAP = 11
 PD_CTRL_WAIT = 12
 PD_CTRL_SOFT_RESET = 13
-# 14-15 Reserved
-# Used for REV 3.0
+PD_CTRL_DATA_RESET = 14
+PD_CTRL_DATA_RESET_COMPLETE = 15
 PD_CTRL_NOT_SUPPORTED = 16
 PD_CTRL_GET_SOURCE_CAP_EXT = 17
 PD_CTRL_GET_STATUS = 18
 PD_CTRL_FR_SWAP = 19
 PD_CTRL_GET_PPS_STATUS = 20
 PD_CTRL_GET_COUNTRY_CODES = 21
+PD_CTRL_GET_SINK_CAP_EXTENDED = 22
+PD_CTRL_GET_SOURCE_INFO = 23
+PD_CTRL_GET_REVISION = 24
 
 PD_DATA_SOURCE_CAP = 1
 PD_DATA_REQUEST = 2
 PD_DATA_BIST = 3
 PD_DATA_SINK_CAP = 4
-# 5-14 Reserved for REV 2.0
 PD_DATA_BATTERY_STATUS = 5
 PD_DATA_ALERT = 6
 PD_DATA_GET_COUNTRY_INFO = 7
-# 8-14 Reserved for REV 3.0
+PD_DATA_ENTER_USB = 8
+PD_DATA_EPR_REQUEST = 9
+PD_DATA_EPR_MODE = 10
+PD_DATA_SOURCE_INFO = 11
+PD_DATA_REVISION = 12
 PD_DATA_VENDOR_DEF = 15
+
+PD_CMD_DISCOVER_IDENTITY = 1
+PD_CMD_DISCOVER_SVIDS = 2
+PD_CMD_DISCOVER_MODES = 3
+PD_CMD_ENTER_MODE = 4
+PD_CMD_EXIT_MODE = 5
+PD_CMD_ATTENTION = 6
 
 PD_REV10 = 0
 PD_REV20 = 1
@@ -378,6 +391,7 @@ class FUSB302Interface:
         await self.lower._data_write([(self._i2c_addr << 1) | 1])
         await self.lower._cmd_count(size)
         await self.lower._cmd_read()
+        await self.lower._cmd_stop()
 
         # Check the ACK of the slave address and register address write
         unacked, = await self.lower._data_read(1)
@@ -399,8 +413,9 @@ class FUSB302Interface:
         sop = buf[0] & FUSB302_TKN_SOP_MASK
         head = (buf[1] & 0xFF)
         head |= ((buf[2] << 8) & 0xFF00)
-        len = ((head >> 12) & 7) * 4
-        self._logger.info("MSG: sop = %02X, head = %04X, len = %d", sop, head, len)
+        len = ((head >> 12) & 7) * 4 + 4
+        if (((head & 0x1F) != PD_CTRL_GOOD_CRC) or (((head >> 12) & 7) != 0)):
+            self._logger.info("MSG: sop = %02X, head = %04X, len = %d", sop, head, len)
 
         await self.lower._cmd_start()
         await self.lower._cmd_count(1)
@@ -418,6 +433,9 @@ class FUSB302Interface:
             return (None,None,None)
 
         buf = await self.lower._data_read(len)
+        if (((head & 0x1F) != PD_CTRL_GOOD_CRC) or (((head >> 12) & 7) != 0)):
+            self._logger.info("READ_MSG: payload = %s", bytes(buf).hex(' ', 2))
+
         return (sop,head,buf)
 
     
@@ -447,9 +465,7 @@ class FUSB302Interface:
         payload = []
         payload.extend(sop)
         payload.extend([reg, header & 0xFF, header >> 8])
-        self._logger.info("WRITE_MSG: data = %s", data)
         for word in data:
-            self._logger.info("WRITE_MSG: word = %04X", word)
             payload.append(word & 0xFF)
             payload.append((word >> 8) & 0xFF)
             payload.append((word >> 16) & 0xFF)
@@ -458,7 +474,7 @@ class FUSB302Interface:
         payload.append(FUSB302_TKN_EOP)
         payload.append(FUSB302_TKN_TXOFF)
         payload.append(FUSB302_TKN_TXON)
-        self._logger.info("WRITE_MSG: payload = %s", payload)
+        self._logger.info("WRITE_MSG: payload = %s", bytes(payload).hex(' ',1))
 
         # Perform the whole write/read transaction in one chunk, assuming success
         await self.lower._cmd_start()
@@ -919,6 +935,22 @@ class FUSB302Interface:
         self._logger.info(">REQUEST")
 
 
+    async def send_sink_cap(self):
+        hdr = self.PD_HEADER(PD_DATA_SINK_CAP, 0, 0, 0, 1, PD_REV20, 0)
+        pdo = ((0<<30)   | # Fixed supply (fixed 5V)
+               (1<<26)   | # USB communications capable
+               (100<<10) | # 5V
+               (0<<0))     # 0mA
+        await self.fusb302_tcpm_transmit(TCPC_TX_SOP, hdr, [pdo]);
+        self._logger.info(">SINK_CAP")
+
+
+    async def send_not_supported(self):
+        hdr = self.PD_HEADER(PD_CTRL_NOT_SUPPORTED, 0, 0, 0, 0, PD_REV20, 0)
+        await self.fusb302_tcpm_transmit(TCPC_TX_SOP, hdr, []);
+        self._logger.info(">NOT_SUPPORTED")
+
+
     async def handle_msg(self, sop, hdr, msg):
         len = (((hdr) >> 12) & 7)
         type = ((hdr) & 0x1F)
@@ -926,10 +958,40 @@ class FUSB302Interface:
             if (type == PD_DATA_SOURCE_CAP):
                 self._logger.info("<SOURCE_CAP: %08X", msg[0])
                 await self.send_power_request(msg[0]);
+            elif (type == PD_DATA_VENDOR_DEF):
+                cmd = ((msg[0]) & 0x1F)
+                if (cmd == PD_CMD_DISCOVER_IDENTITY):
+                    self._logger.info("<DISCOVER_IDENTITY")
+                    # await self.send_discover_identity_ack(msg[0]);
+                elif (cmd == PD_CMD_DISCOVER_SVIDS):
+                    self._logger.info("<DISCOVER_SVIDS")
+                    # await self.send_discover_svids_ack(msg[0]);
+                elif (cmd == PD_CMD_DISCOVER_MODES):
+                    self._logger.info("<DISCOVER_MODES")
+                    # await self.send_discover_modes_ack(msg[0]);
+                elif (cmd == PD_CMD_ENTER_MODE):
+                    self._logger.info("<ENTER_MODE")
+                    # await self.send_enter_mode_ack(msg[0]);
+                elif (cmd == PD_CMD_EXIT_MODE):
+                    self._logger.info("<EXIT_MODE")
+                    # await self.send_exit_mode_ack(msg[0]);
+                else:
+                    self._logger.info("<UNK VENDOR_DEF: %02X", cmd)
             else:
                 self._logger.info("<UNK DATA: %02X", type)
         else:
-            self._logger.info("<UNK CTRL: %02X", type)
+            if (type == PD_CTRL_ACCEPT):
+                self._logger.info("<ACCEPT")
+            elif (type == PD_CTRL_PS_RDY):
+                self._logger.info("<PS_RDY")
+            elif (type == PD_CTRL_GET_SINK_CAP):
+                self._logger.info("<GET_SINK_CAP")
+                await self.send_sink_cap();
+            elif (type == PD_CTRL_GET_SOURCE_CAP_EXT):
+                self._logger.info("<GET_SOURCE_CAP_EXT")
+                await self.send_not_supported();
+            else:
+                self._logger.info("<UNK CTRL: %02X", type)
 
 
     async def evt_packet(self):
