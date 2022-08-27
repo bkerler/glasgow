@@ -301,6 +301,7 @@ class FUSB302Interface:
         self._i2c_addr = i2c_address
         self._logger   = logger
         self._level    = logging.DEBUG if self._logger.name == __name__ else logging.TRACE
+        self._io_lock  = asyncio.Lock()
 
     @staticmethod
     def _check(result):
@@ -314,23 +315,26 @@ class FUSB302Interface:
         self._logger.log(self._level, "FUSB302: addr=%s write=<%s>",
                          hex(addr), data.hex())
 
-        # Perform the whole write/read transaction in one chunk, assuming success
-        await self.lower._cmd_start()
-        await self.lower._cmd_count(2 + len(data))
-        await self.lower._cmd_write()
-        await self.lower._data_write([(self._i2c_addr << 1) | 0])
-        await self.lower._data_write([addr])
-        await self.lower._data_write(data)
-        await self.lower._cmd_stop()
-        
-        unacked, = await self.lower._data_read(1)
-        acked = len(data) - unacked
-        if unacked == 0:
-            self._logger.log(self._level, "FUSB302: acked=%d", acked)
-        else:
-            self._logger.log(self._level, "FUSB302: unacked=%d", unacked)
+        async with self._io_lock:
+            # Perform the whole write/read transaction in one chunk, assuming success
+            await self.lower._cmd_start()
+            await self.lower._cmd_count(2 + len(data))
+            await self.lower._cmd_write()
+            await self.lower._data_write([(self._i2c_addr << 1) | 0])
+            await self.lower._data_write([addr])
+            await self.lower._data_write(data)
+            await self.lower._cmd_stop()
 
-        return unacked == 0
+            # Check the ACK of the slave address, register address write and data write
+            unacked, = await self.lower._data_read(1)
+            acked = len(data) - unacked
+
+            if unacked == 0:
+                self._logger.log(self._level, "FUSB302: acked=%d", acked)
+            else:
+                self._logger.log(self._level, "FUSB302: unacked=%d", unacked)
+
+            return unacked == 0
 
 
     async def write(self, addr, data):
@@ -341,35 +345,37 @@ class FUSB302Interface:
         self._logger.log(self._level, "FUSB302: addr=%s read=%d",
                          hex(addr), size)
 
-        # Perform the whole write/read transaction in one chunk, assuming success
-        await self.lower._cmd_start()
-        await self.lower._cmd_count(2)
-        await self.lower._cmd_write()
-        await self.lower._data_write([(self._i2c_addr << 1) | 0])
-        await self.lower._data_write([addr])
-        await self.lower._cmd_start()
-        await self.lower._cmd_count(1)
-        await self.lower._cmd_write()
-        await self.lower._data_write([(self._i2c_addr << 1) | 1])
-        await self.lower._cmd_count(size)
-        await self.lower._cmd_read()
-        await self.lower._cmd_stop()
-        
-        # Check the ACK of the slave address and register address write
-        unacked, = await self.lower._data_read(1)
-        if unacked != 0:
-            self._logger.log(self._level, "FUSB302: unacked slave and register address write")
-            return None
+        async with self._io_lock:
+            # Perform the whole write/read transaction in one chunk, assuming success
+            await self.lower._cmd_start()
+            await self.lower._cmd_count(2)
+            await self.lower._cmd_write()
+            await self.lower._data_write([(self._i2c_addr << 1) | 0])
+            await self.lower._data_write([addr])
+            await self.lower._cmd_start()
+            await self.lower._cmd_count(1)
+            await self.lower._cmd_write()
+            await self.lower._data_write([(self._i2c_addr << 1) | 1])
+            await self.lower._cmd_count(size)
+            await self.lower._cmd_read()
+            await self.lower._cmd_stop()
 
-        # Check the ACK of the slave address write and register data read
-        unacked, = await self.lower._data_read(1)
-        data = await self.lower._data_read(size)
-        if unacked != 0:
-            self._logger.log(self._level, "FUSB302: unacked data read")
-            return None
+            # Check the ACK of the slave address and register address write
+            unacked, = await self.lower._data_read(1)
+            if unacked != 0:
+                self._logger.log(self._level, "FUSB302: unacked slave and register address write")
+                return None
 
-        self._logger.log(self._level, "FUSB302: acked data=<%s>", data.hex())
-        return data
+            # Check the ACK of the slave address write and register data read
+            unacked, = await self.lower._data_read(1)
+            data = await self.lower._data_read(size)
+
+            if unacked != 0:
+                self._logger.log(self._level, "FUSB302: unacked data read")
+                return None
+
+            self._logger.log(self._level, "FUSB302: acked data=<%s>", data.hex())
+            return data
 
 
     async def read(self, addr):
@@ -380,63 +386,69 @@ class FUSB302Interface:
     async def read_msg(self):
         addr = TCPC_REG_FIFOS
         size = 3
-        await self.lower._cmd_start()
-        await self.lower._cmd_count(2)
-        await self.lower._cmd_write()
-        await self.lower._data_write([(self._i2c_addr << 1) | 0])
-        await self.lower._data_write([addr])
-        await self.lower._cmd_start()
-        await self.lower._cmd_count(1)
-        await self.lower._cmd_write()
-        await self.lower._data_write([(self._i2c_addr << 1) | 1])
-        await self.lower._cmd_count(size)
-        await self.lower._cmd_read()
-        await self.lower._cmd_stop()
-
-        # Check the ACK of the slave address and register address write
-        unacked, = await self.lower._data_read(1)
-        if unacked != 0:
+        
+        async with self._io_lock:
+            await self.lower._cmd_start()
+            await self.lower._cmd_count(2)
+            await self.lower._cmd_write()
+            await self.lower._data_write([(self._i2c_addr << 1) | 0])
+            await self.lower._data_write([addr])
+            await self.lower._cmd_start()
+            await self.lower._cmd_count(1)
+            await self.lower._cmd_write()
+            await self.lower._data_write([(self._i2c_addr << 1) | 1])
+            await self.lower._cmd_count(size)
+            await self.lower._cmd_read()
             await self.lower._cmd_stop()
-            self._logger.log(self._level, "FUSB302: unacked slave and register address write")
-            return (None,None,None)
 
-        # Check the ACK of the slave address and register data read
-        unacked, = await self.lower._data_read(1)
-        if unacked != 0:
-            await self.lower._cmd_stop()
-            self._logger.log(self._level, "FUSB302: unacked data read")
-            return (None,None,None)
+            # Check the ACK of the slave address and register address write
+            unacked, = await self.lower._data_read(1)
+            if unacked != 0:
+                await self.lower._cmd_stop()
+                self._logger.log(self._level, "FUSB302: unacked slave and register address write")
+                return (None,None,None)
 
-        buf = await self.lower._data_read(size)
+            # Check the ACK of the slave address and register data read
+            unacked, = await self.lower._data_read(1)
+            if unacked != 0:
+                await self.lower._cmd_stop()
+                self._logger.log(self._level, "FUSB302: unacked data read")
+                return (None,None,None)
 
-        # Grab the header
-        sop = buf[0] & FUSB302_TKN_SOP_MASK
-        head = (buf[1] & 0xFF)
-        head |= ((buf[2] << 8) & 0xFF00)
-        len = ((head >> 12) & 7) * 4 + 4
-        if (((head & 0x1F) != PD_CTRL_GOOD_CRC) or (((head >> 12) & 7) != 0)):
-            self._logger.info("MSG: sop = %02X, head = %04X, len = %d", sop, head, len)
+            # Read the SOP and two bytes of the header
+            buf = await self.lower._data_read(size)
 
-        await self.lower._cmd_start()
-        await self.lower._cmd_count(1)
-        await self.lower._cmd_write()
-        await self.lower._data_write([(self._i2c_addr << 1) | 1])
-        await self.lower._cmd_count(len)
-        await self.lower._cmd_read()
-        await self.lower._cmd_stop()
+            # Decode the header
+            sop = buf[0] & FUSB302_TKN_SOP_MASK
+            head = (buf[1] & 0xFF)
+            head |= ((buf[2] << 8) & 0xFF00)
+            len = ((head >> 12) & 7) * 4 + 4
+            if (((head & 0x1F) != PD_CTRL_GOOD_CRC) or (((head >> 12) & 7) != 0)):
+                self._logger.info("MSG: sop = %02X, head = %04X, len = %d", sop, head, len)
 
-        # Check the ACK of the slave address and register data read
-        unacked, = await self.lower._data_read(1)
-        if unacked != 0:
-            await self.lower._cmd_stop()
-            self._logger.log(self._level, "FUSB302: unacked data read")
-            return (None,None,None)
+                # Perform the read of the rest of the message in one chunk, assuming success
+                await self.lower._cmd_start()
+                await self.lower._cmd_count(1)
+                await self.lower._cmd_write()
+                await self.lower._data_write([(self._i2c_addr << 1) | 1])
+                await self.lower._cmd_count(len)
+                await self.lower._cmd_read()
+                await self.lower._cmd_stop()
 
-        buf = await self.lower._data_read(len)
-        if (((head & 0x1F) != PD_CTRL_GOOD_CRC) or (((head >> 12) & 7) != 0)):
-            self._logger.info("READ_MSG: payload = %s", bytes(buf).hex(' ', 2))
+                # Check the ACK of the slave address and register data read
+                unacked, = await self.lower._data_read(1)
+                if unacked != 0:
+                    await self.lower._cmd_stop()
+                    self._logger.log(self._level, "FUSB302: unacked data read")
+                    return (None,None,None)
 
-        return (sop,head,buf)
+                # Read the rest of the message
+                buf = await self.lower._data_read(len)
+
+                if (((head & 0x1F) != PD_CTRL_GOOD_CRC) or (((head >> 12) & 7) != 0)):
+                    self._logger.info("READ_MSG: payload = %s", bytes(buf).hex(' ', 2))
+
+            return (sop,head,buf)
 
     
     async def mask_write(self, addr, mask, value):
@@ -476,23 +488,24 @@ class FUSB302Interface:
         payload.append(FUSB302_TKN_TXON)
         self._logger.info("WRITE_MSG: payload = %s", bytes(payload).hex(' ',1))
 
-        # Perform the whole write/read transaction in one chunk, assuming success
-        await self.lower._cmd_start()
-        await self.lower._cmd_count(2 + len(payload))
-        await self.lower._cmd_write()
-        await self.lower._data_write([(self._i2c_addr << 1) | 0])
-        await self.lower._data_write([addr])
-        await self.lower._data_write(payload)
-        await self.lower._cmd_stop()
+        async with self._io_lock:
+            # Perform the whole write/read transaction in one chunk, assuming success
+            await self.lower._cmd_start()
+            await self.lower._cmd_count(2 + len(payload))
+            await self.lower._cmd_write()
+            await self.lower._data_write([(self._i2c_addr << 1) | 0])
+            await self.lower._data_write([addr])
+            await self.lower._data_write(payload)
+            await self.lower._cmd_stop()
+            unacked, = await self.lower._data_read(1)
 
-        unacked, = await self.lower._data_read(1)
-        acked = len(data) - unacked
-        if unacked == 0:
-            self._logger.log(self._level, "FUSB302: acked=%d", acked)
-        else:
-            self._logger.log(self._level, "FUSB302: unacked=%d", unacked)
+            acked = len(data) - unacked
+            if unacked == 0:
+                self._logger.log(self._level, "FUSB302: acked=%d", acked)
+            else:
+                self._logger.log(self._level, "FUSB302: unacked=%d", unacked)
 
-        return unacked == 0
+            return unacked == 0
 
     
     def platform_usleep(self, us):
