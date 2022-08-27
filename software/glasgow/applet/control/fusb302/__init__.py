@@ -3,7 +3,7 @@ import asyncio
 import math
 import time
 
-from nmigen import *
+from amaranth import *
 
 from ...interface.i2c_initiator import I2CInitiatorApplet,I2CInitiatorSubtarget,I2CInitiatorInterface
 from ... import *
