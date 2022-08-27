@@ -530,7 +530,7 @@ class FUSB302Interface:
 
 
     async def fusb302_flush_tx_fifo(self):
-        await self.set_bits(TCPC_REG_CONTROL0, TCPC_REG_CONTROL0_TX_FLUSH);
+        await self.set_bits(TCPC_REG_CONTROL0, TCPC_REG_CONTROL0_TX_FLUSH)
 
 
     async def auto_goodcrc_enable(self, enable):
@@ -601,7 +601,7 @@ class FUSB302Interface:
         # CC1 is now being measured by FUSB302.
 
         # Wait on measurement
-        self.platform_usleep(250);
+        self.platform_usleep(250)
 
         bc_lvl_cc1 = await self.read(TCPC_REG_STATUS0)
         # mask away unwanted bits
@@ -615,7 +615,7 @@ class FUSB302Interface:
 
         # CC2 is now being measured by FUSB302.
         # Wait on measurement
-        self.platform_usleep(250);
+        self.platform_usleep(250)
 
         bc_lvl_cc2 = await self.read(TCPC_REG_STATUS0)
         # mask away unwanted bits
@@ -724,7 +724,7 @@ class FUSB302Interface:
                                    TCPC_REG_SWITCHES0_VCONN_CC1 |
                                    TCPC_REG_SWITCHES0_VCONN_CC2),
                                   reg)
-            self._pulling_up = 1;
+            self._pulling_up = 1
         elif (pull == TYPEC_CC_RD):
             # Enable UFP Mode
             # turn off toggle
@@ -738,7 +738,7 @@ class FUSB302Interface:
                              TCPC_REG_SWITCHES0_CC1_PD_EN |
                              TCPC_REG_SWITCHES0_CC2_PD_EN),
                             reg)
-            self._pulling_up = 0;
+            self._pulling_up = 0
         elif (pull == TYPEC_CC_OPEN):
             # Disable toggling
             await self.clear_bits(TCPC_REG_CONTROL2, TCPC_REG_CONTROL2_TOGGLE)
@@ -748,7 +748,7 @@ class FUSB302Interface:
                                    TCPC_REG_SWITCHES0_CC1_PU_EN |
                                    TCPC_REG_SWITCHES0_CC1_PD_EN |
                                    TCPC_REG_SWITCHES0_CC2_PD_EN))
-            self._pulling_up = 0;
+            self._pulling_up = 0
 
 
     async def fusb302_tcpm_set_polarity(self, polarity):
@@ -849,7 +849,7 @@ class FUSB302Interface:
         await self.fusb302_flush_tx_fifo()
         header |= (self._msgid << 9)
         self._msgid += 1
-        self._msgid &= 0x7;
+        self._msgid &= 0x7
 
         if (type == TCPC_TX_SOP):
             sop = [FUSB302_TKN_SYNC1, FUSB302_TKN_SYNC1, FUSB302_TKN_SYNC1, FUSB302_TKN_SYNC2]
@@ -895,8 +895,8 @@ class FUSB302Interface:
 
         
     async def tcpm_get_vbus_level(self):
-        reg = await self.read(TCPC_REG_STATUS0);
-        return True if (reg & TCPC_REG_STATUS0_VBUSOK) else False;
+        reg = await self.read(TCPC_REG_STATUS0)
+        return True if (reg & TCPC_REG_STATUS0_VBUSOK) else False
 
 
     async def vbus_off(self):
@@ -921,10 +921,10 @@ class FUSB302Interface:
         await self.fusb302_pd_reset()
         await self.fusb302_tcpm_set_msg_header(0, 0); # Sink
         if (cc1 > cc2):
-            await self.fusb302_tcpm_set_polarity(0);
+            await self.fusb302_tcpm_set_polarity(0)
             self._logger.info("Polarity: CC1 (normal)")
         else:
-            await self.fusb302_tcpm_set_polarity(1);
+            await self.fusb302_tcpm_set_polarity(1)
             self._logger.info("Polarity: CC2 (flipped)")
         await self.fusb302_tcpm_set_rx_enable(1)
         self._state = STATE_CONNECTED
@@ -944,7 +944,7 @@ class FUSB302Interface:
                (0<<10) | # 0mA operating
                (0<<0))   # 0mA max
         self._logger.info("POWER_REQ: req = %s", req)
-        await self.fusb302_tcpm_transmit(TCPC_TX_SOP, hdr, [req]);
+        await self.fusb302_tcpm_transmit(TCPC_TX_SOP, hdr, [req])
         self._logger.info(">REQUEST")
 
 
@@ -954,13 +954,13 @@ class FUSB302Interface:
                (1<<26)   | # USB communications capable
                (100<<10) | # 5V
                (0<<0))     # 0mA
-        await self.fusb302_tcpm_transmit(TCPC_TX_SOP, hdr, [pdo]);
+        await self.fusb302_tcpm_transmit(TCPC_TX_SOP, hdr, [pdo])
         self._logger.info(">SINK_CAP")
 
 
     async def send_not_supported(self):
         hdr = self.PD_HEADER(PD_CTRL_NOT_SUPPORTED, 0, 0, 0, 0, PD_REV20, 0)
-        await self.fusb302_tcpm_transmit(TCPC_TX_SOP, hdr, []);
+        await self.fusb302_tcpm_transmit(TCPC_TX_SOP, hdr, [])
         self._logger.info(">NOT_SUPPORTED")
 
 
@@ -970,24 +970,24 @@ class FUSB302Interface:
         if (len != 0):
             if (type == PD_DATA_SOURCE_CAP):
                 self._logger.info("<SOURCE_CAP: %08X", msg[0])
-                await self.send_power_request(msg[0]);
+                await self.send_power_request(msg[0])
             elif (type == PD_DATA_VENDOR_DEF):
                 cmd = ((msg[0]) & 0x1F)
                 if (cmd == PD_CMD_DISCOVER_IDENTITY):
                     self._logger.info("<DISCOVER_IDENTITY")
-                    # await self.send_discover_identity_ack(msg[0]);
+                    # await self.send_discover_identity_ack(msg[0])
                 elif (cmd == PD_CMD_DISCOVER_SVIDS):
                     self._logger.info("<DISCOVER_SVIDS")
-                    # await self.send_discover_svids_ack(msg[0]);
+                    # await self.send_discover_svids_ack(msg[0])
                 elif (cmd == PD_CMD_DISCOVER_MODES):
                     self._logger.info("<DISCOVER_MODES")
-                    # await self.send_discover_modes_ack(msg[0]);
+                    # await self.send_discover_modes_ack(msg[0])
                 elif (cmd == PD_CMD_ENTER_MODE):
                     self._logger.info("<ENTER_MODE")
-                    # await self.send_enter_mode_ack(msg[0]);
+                    # await self.send_enter_mode_ack(msg[0])
                 elif (cmd == PD_CMD_EXIT_MODE):
                     self._logger.info("<EXIT_MODE")
-                    # await self.send_exit_mode_ack(msg[0]);
+                    # await self.send_exit_mode_ack(msg[0])
                 else:
                     self._logger.info("<UNK VENDOR_DEF: %02X", cmd)
             else:
@@ -1000,10 +1000,10 @@ class FUSB302Interface:
                 self._state = STATE_READY
             elif (type == PD_CTRL_GET_SINK_CAP):
                 self._logger.info("<GET_SINK_CAP")
-                await self.send_sink_cap();
+                await self.send_sink_cap()
             elif (type == PD_CTRL_GET_SOURCE_CAP_EXT):
                 self._logger.info("<GET_SOURCE_CAP_EXT")
-                await self.send_not_supported();
+                await self.send_not_supported()
             else:
                 self._logger.info("<UNK CTRL: %02X", type)
 
@@ -1123,7 +1123,7 @@ class ControlFUSB302Applet(I2CInitiatorApplet, name="control-fusb302"):
 
     def build(self, target, args):
         # Simple operation only requires port A
-        args.port_spec = 'A';
+        args.port_spec = 'A'
         # Mapping the SBU or USB pins uses port B
         if (args.sbu_type or args.usb_type):
             args.port_spec = 'AB'
@@ -1155,11 +1155,11 @@ class ControlFUSB302Applet(I2CInitiatorApplet, name="control-fusb302"):
     async def run(self, device, args):
         # Run port A at 5V
         self.logger.debug("setting port A voltage to 5.0v")
-        await device.set_voltage('A', 5.0);
+        await device.set_voltage('A', 5.0)
         # Run port B at 3.3V if mapping SBU or USB
         if (args.sbu_type or args.usb_type):
             self.logger.debug("setting port B voltage set to 3.3v")
-            await device.set_voltage('B', 3.3);
+            await device.set_voltage('B', 3.3)
         # Claim the interface(s) needed
         iface = await device.demultiplexer.claim_interface(self, self.mux_interface, args)
         i2c_iface = I2CInitiatorInterface(iface, self.logger)
