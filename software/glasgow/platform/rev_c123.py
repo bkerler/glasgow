@@ -1,14 +1,14 @@
-from nmigen.build import *
+from amaranth.build import *
 
 from .ice40 import *
 
 
-__all__ = ["GlasgowPlatformRevC12"]
+__all__ = ["GlasgowPlatformRevC123"]
 
 
 # In terms of FPGA I/O, the only change from revC0 to revC1 is the addition of a level shifter
-# on the sync port. There are no changes from revC1 to revC2.
-class GlasgowPlatformRevC12(GlasgowPlatformICE40):
+# on the sync port. There are no changes between revC1, revC2 or revC3.
+class GlasgowPlatformRevC123(GlasgowPlatformICE40):
     device      = "iCE40HX8K"
     package     = "BG121"
     default_clk = "clk_if"
@@ -122,11 +122,13 @@ class GlasgowPlatformRevC12(GlasgowPlatformICE40):
         Resource("unused", 0, Pins("A6 B5", dir="oe"), Attrs(IO_STANDARD="SB_LVCMOS33")),
     ]
     connectors  = [
-        #                       1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44
-        Connector("lvds", 0, "  -  -  K1 -  J1 -  -  K2 H1 J2 H2 -  -  H3 G1 G3 G2 -  -  F3 F1 F4 F2 -  -  E3 E1 E2 D1 -  -  D2 C1 D3 C2 -  -  C3 B1 C4 B2 -  -  -"),
+        #                     1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19 20 21 22
+        #                     23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44
+        Connector("lvds", 0, "-  -  K1 -  J1 -  -  K2 H1 J2 H2 -  -  H3 G1 G3 G2 -  -  F3 F1 F4 "
+                             "F2 -  -  E3 E1 E2 D1 -  -  D2 C1 D3 C2 -  -  C3 B1 C4 B2 -  -  -  "),
     ]
 
 
 if __name__ == "__main__":
-    from nmigen_boards.test.blinky import *
+    from amaranth_boards.test.blinky import *
     GlasgowPlatformRevC1().build(Blinky(), do_program=True)

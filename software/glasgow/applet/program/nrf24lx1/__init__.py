@@ -8,7 +8,7 @@ import logging
 import argparse
 import struct
 from collections import namedtuple
-from nmigen.compat import *
+from amaranth.compat import *
 from fx2.format import input_data, output_data
 
 from ....support.logging import dump_hex
@@ -110,6 +110,13 @@ class ProgramNRF24Lx1Interface:
     async def write_disable(self):
         self._log("write disable")
         await self._command(0x04)
+
+    async def check_presence(self):
+        await self.write_enable()
+        present = (await self.read_status() & FSR_BIT_WEN) != 0
+        if present:
+            await self.write_disable()
+        return present
 
     async def read(self, address, length):
         self._log("read address=%#06x length=%#06x", address, length)
@@ -252,6 +259,9 @@ class ProgramNRF24Lx1Applet(GlasgowApplet, name="program-nrf24lx1"):
 
         try:
             await nrf24lx1_iface.reset_program()
+
+            if not await nrf24lx1_iface.check_presence():
+                raise ProgramNRF24Lx1Error("MCU is not present")
 
             async def check_info_page(address):
                 old_status = await nrf24lx1_iface.read_status()

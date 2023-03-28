@@ -2,9 +2,9 @@
 
 **Want one? The [Crowdsupply campaign](https://www.crowdsupply.com/1bitsquared/glasgow) is now live.**
 
-**Let's chat! Our IRC channel is [#glasgow at freenode.net](https://webchat.freenode.net/?channels=glasgow); our Discord channel is [#glasgow at 1BitSquared's Discord server](https://1bitsquared.com/pages/chat).**
+**Let's chat! Our IRC channel is [#glasgow at libera.chat](https://web.libera.chat/#glasgow); our Discord channel is [#glasgow at 1BitSquared's Discord server](https://1bitsquared.com/pages/chat).**
 
-**Important note: if you are looking to assemble boards yourself, use only revC1.**
+**Important note: if you are looking to assemble boards yourself, use only revC2.**
 
 ## What is Glasgow?
 
@@ -21,8 +21,8 @@ Some of the tasks Glasgow can do well are:
   * communicate via UART,
     * automatically determine and follow the baud rate of device under test,
   * initiate transactions via SPI or I²C,
-  * read and write 24-series EEPROMs,
-  * read and write 25-series Flash memories,
+  * read and write 24-series I²C EEPROMs,
+  * read and write 25-series SPI Flash memories,
     * determine memory parameters via SFDP,
   * read and write ONFI-compatible Flash memories,
     * determine memory parameters via ONFI parameter page,
@@ -62,15 +62,15 @@ Revisions A and B have not been produced in significant amounts, contain major d
 
 ![Overview of the Glasgow PCB](hardware/boards/glasgow/3drender-readme.png)
 
-Revision C is the latest revision and is being prepared for mass production. It provides 16 I/O pins with a maximum data rate of approx. 200 Mbps/pin (100 MHz)\*, independent direction control and independent programmable pull-up/pull-down resistors. The I/O pins are grouped into two I/O ports, each of which can use any voltage from 1.8 V to 5 V, sense and monitor I/O voltage of the device under test, as well as provide up to 150 mA of power. The board uses USB 2 for power, configuration, and communication, achieving up to 336 Mbps (42 MB/s) of sustained combined throughput.
+Revision C is the latest revision and is being prepared for mass production. It provides 16 I/O pins with a data rate up to approx. 100 Mbps/pin (50 MHz)\*, independent direction control and independent programmable pull-up/pull-down resistors. The I/O pins are grouped into two I/O ports, each of which can use any voltage from 1.8 V to 5 V, sense and monitor I/O voltage of the device under test, as well as provide up to 150 mA of power. The board uses USB 2 for power, configuration, and communication, achieving up to 336 Mbps (42 MB/s) of sustained combined throughput.
 
-<sub>\* Maximum data rate achievable in practice depends on many factors and will vary greatly with specific interface and applet design. 12 Mbps/pin (6 MHz) can be achieved with minimal development effort; reaching higher data rates requires careful HDL coding and a good understanding of timing analysis.</sub>
+<sub>\* Data rate achievable in practice depends on many factors and will vary greatly with specific interface and applet design. 12 Mbps/pin (6 MHz) can be achieved with minimal development effort; reaching higher data rates requires careful HDL coding and a good understanding of timing analysis.</sub>
 
 ## What software does Glasgow use?
 
-Glasgow is written entirely in Python 3. The interface logic that runs on the FPGA is described using [nMigen](https://github.com/nmigen/nmigen/), which is a Python-based domain specific language. The supporting code that runs on the host PC is written in Python with [asyncio](https://docs.python.org/3/library/asyncio.html). This way, the logic on the FPGA can be assembled on demand for any requested configuration, keeping it as fast and compact as possible, and code can be shared between gateware and software, removing the need to add error-prone "glue" boilerplate.
+Glasgow is written entirely in Python 3. The interface logic that runs on the FPGA is described using [Amaranth](https://github.com/amaranth-lang/amaranth/), which is a Python-based domain specific language. The supporting code that runs on the host PC is written in Python with [asyncio](https://docs.python.org/3/library/asyncio.html). This way, the logic on the FPGA can be assembled on demand for any requested configuration, keeping it as fast and compact as possible, and code can be shared between gateware and software, removing the need to add error-prone "glue" boilerplate.
 
-Glasgow would not be possible without the [open-source iCE40 FPGA toolchain](http://www.clifford.at/icestorm/), which is not only very reliable but also extremely fast. It is so fast that FPGA bitstreams are not cached (beyond not rebuilding the bitstream already on the device), as it only takes a few seconds to build one from scratch for something like an UART. When developing a new applet it is rarely necessary to wait for the toolchain.
+Glasgow would not be possible without the [open-source iCE40 FPGA toolchain](http://bygone.clairexen.net/icestorm/), which is not only very reliable but also extremely fast. It is so fast that FPGA bitstreams are not cached (beyond not rebuilding the bitstream already on the device), as it only takes a few seconds to build one from scratch for something like an UART. When developing a new applet it is rarely necessary to wait for the toolchain.
 
 Implementing reliable, high-performance USB communication is not trivial—packetization, buffering, and USB quirks add up. Glasgow abstracts away USB: on the FPGA, the applet gateware writes to or reads from a FIFO, and on the host, applet software writes to or reads from a socket-like interface. Idiomatic Python code can communicate at maximum USB 2 bulk bandwidth on a modern PC without additional effort. Moreover, when a future Glasgow revision will use Ethernet in addition to USB, no changes to applet code will be required.
 
@@ -126,7 +126,7 @@ Obtain the source code:
 Install the dependencies and the scripts for the current user:
 
     cd software
-    python setup.py develop
+    python3 setup.py develop
 
 The scripts will be installed in `/usr/local/bin`, which should already be in your `PATH`.
 
@@ -150,9 +150,9 @@ Configure your system to allow unprivileged access (for anyone in the `plugdev` 
 
 Note that this udev rule will affect more devices than just Glasgow, since the Cypress VID:PID pair is shared.
 
-Plug in the newly assembled device. At this point, `lsusb | grep 04b4:8613` should list one entry. Assuming you are factory flashing a board revision C1, run:
+Plug in the newly assembled device. At this point, `lsusb | grep 04b4:8613` should list one entry. Assuming you are factory flashing a board revision C2, run:
 
-    glasgow factory --rev C1
+    glasgow factory --rev C2
 
 Done! At this point, `lsusb | grep 20b7:9db1` should list one entry.
 
