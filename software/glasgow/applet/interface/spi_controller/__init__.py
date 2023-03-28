@@ -374,12 +374,12 @@ class SPIControllerAppletTestCase(GlasgowAppletTestCase, applet=SPIControllerApp
                             ["--pin-sck",  "0", "--pin-cs", "1",
                              "--pin-copi", "2", "--pin-cipo",   "3",
                              "--frequency", "5000"])
-    @asyncio.coroutine
-    def test_loopback(self):
+
+    async def test_loopback(self):
         mux_iface = self.applet.mux_interface
-        spi_iface = yield from self.run_simulated_applet()
+        spi_iface = await self.run_simulated_applet()
 
         self.assertEqual((yield mux_iface.pads.cs_t.o), 1)
-        result = yield from spi_iface.transfer([0xAA, 0x55, 0x12, 0x34])
+        result = await spi_iface.transfer([0xAA, 0x55, 0x12, 0x34])
         self.assertEqual(result, bytearray([0xAA, 0x55, 0x12, 0x34]))
         self.assertEqual((yield mux_iface.pads.cs_t.o), 1)

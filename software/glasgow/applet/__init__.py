@@ -306,9 +306,9 @@ def applet_simulation_test(setup, args=[]):
             self._prepare_simulation_target()
 
             getattr(self, setup)()
-            @asyncio.coroutine
-            def run():
-                yield from case(self)
+
+            async def run():
+                await case(self)
 
             sim = Simulator(self.target)
             sim.add_clock(1e-9)
