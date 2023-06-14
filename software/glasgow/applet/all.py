@@ -33,6 +33,7 @@ from .program.xc6s import ProgramXC6SApplet
 from .program.xc9500xl import ProgramXC9500XLApplet
 
 from .control.tps6598x import ControlTPS6598xApplet
+from .control.fusb302 import ControlFUSB302Applet
 
 from .sensor.bmx280 import SensorBMx280Applet
 from .sensor.hx711 import SensorHX711Applet
