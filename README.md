@@ -6,6 +6,14 @@
 
 **Important note: if you are looking to assemble boards yourself, use only revC2.**
 
+## ⚠️⚠️⚠️ NEWCOMERS AND CROWDSUPPLY BUYERS: PLEASE READ THIS FIRST ⚠️⚠️⚠️
+
+At the moment the project does not see much activity because the founder and primary maintainer, [Catherine @whitequark](https://github.com/whitequark), has spent several years struggling to survive due to disability, large scale social unrest, and other factors. She has now moved to the UK, got necessary healthcare, and is doing a lot better; the project's pace will pick up soon and more maintainers will be added to the current team of three in close future, but the timing of Crowdsupply orders being shipped doesn't match up to maintainer capacity a little bit.
+
+Please stay patient and keep in mind that hardware is made by people who have limited capacity and sometimes need to recover from extreme events.
+
+If you want to show appreciation or help with Catherine's living costs, she has a personal [Patreon](https://patreon.com/whitequark). These donations will not impact the progress of the project since the limiting factor is health first and time second, but they are very much appreciated.
+
 ## What is Glasgow?
 
 Glasgow is a tool for exploring digital interfaces, aimed at embedded developers, reverse engineers, digital archivists, electronics hobbyists, and everyone else who wants to communicate to a wide selection of digital devices with high reliability and minimum hassle. It can be attached to most devices without additional active or passive components, and includes extensive protection from unexpected conditions and operator error.
@@ -85,7 +93,7 @@ Debugging new applets can be hard, especially if bidirectional buses are involve
 You will need git and Python 3.7 (or a newer version, in which case replace `3.7` with that version below). On a Debian or Ubuntu system these can be installed with:
 
     apt-get install --no-install-recommends git python3.7 python3-setuptools \
-      python3-libusb1 python3-aiohttp python3-bitarray python3-crcmod
+      python3-libusb1 python3-aiohttp python3-bitarray
 
 You will also need Yosys and nextpnr-ice40, both from the master branch. Follow the setup instructions for [Yosys](https://github.com/yosysHQ/yosys/#setup) and [nextpnr](https://github.com/YosysHQ/nextpnr/#nextpnr-ice40).
 
