@@ -1,6 +1,7 @@
 import re
 import argparse
 from abc import ABCMeta, abstractmethod
+from amaranth import *
 
 from ..support.arepl import *
 from ..gateware.clockgen import *
@@ -100,6 +101,7 @@ import os
 import unittest
 import functools
 import asyncio
+import types
 import threading
 import inspect
 import json
@@ -240,8 +242,7 @@ class GlasgowAppletTestCase(unittest.TestCase):
         self._parsed_args = parser.parse_args(args)
 
     def _prepare_simulation_target(self):
-        self.target = GlasgowSimulationTarget()
-        self.target.submodules.multiplexer = SimulationMultiplexer()
+        self.target = GlasgowSimulationTarget(multiplexer_cls=SimulationMultiplexer)
 
         self.device = GlasgowSimulationDevice(self.target)
         self.device.demultiplexer = SimulationDemultiplexer(self.device)
@@ -288,6 +289,9 @@ class GlasgowAppletTestCase(unittest.TestCase):
     async def run_hardware_applet(self, mode):
         if mode == "record":
             await self.device.download_target(self.target.build_plan())
+        else:
+            # avoid UnusedElaboratable warning
+            Fragment.get(self.target, None)
 
         return await self.applet.run(self.device, self._parsed_args)
 
@@ -306,7 +310,7 @@ def applet_simulation_test(setup, args=[]):
             self._prepare_simulation_target()
 
             getattr(self, setup)()
-            @asyncio.coroutine
+            @types.coroutine
             def run():
                 yield from case(self)
 
@@ -358,6 +362,7 @@ def applet_hardware_test(setup="run_hardware_applet", args=[]):
                     finally:
                         if self.device is not None:
                             loop.run_until_complete(self.device.demultiplexer.cancel())
+                        loop.close()
 
                 thread = threading.Thread(target=run_test)
                 thread.start()
@@ -374,6 +379,7 @@ def applet_hardware_test(setup="run_hardware_applet", args=[]):
                 if mode == "record":
                     if self.device is not None:
                         self.device.close()
+                fixture.close()
 
         return wrapper
 
