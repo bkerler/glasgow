@@ -4,7 +4,15 @@
 
 **Let's chat! Our IRC channel is [#glasgow at libera.chat](https://web.libera.chat/#glasgow); our Discord channel is [#glasgow at 1BitSquared's Discord server](https://1bitsquared.com/pages/chat).**
 
-**Important note: if you are looking to assemble boards yourself, use only revC1.**
+**Important note: if you are looking to assemble boards yourself, use only revC2.**
+
+## ⚠️⚠️⚠️ NEWCOMERS AND CROWDSUPPLY BUYERS: PLEASE READ THIS FIRST ⚠️⚠️⚠️
+
+At the moment the project does not see much activity because the founder and primary maintainer, [Catherine @whitequark](https://github.com/whitequark), has spent several years struggling to survive due to disability, large scale social unrest, and other factors. She has now moved to the UK, got necessary healthcare, and is doing a lot better; the project's pace will pick up soon and more maintainers will be added to the current team of three in close future, but the timing of Crowdsupply orders being shipped doesn't match up to maintainer capacity a little bit.
+
+Please stay patient and keep in mind that hardware is made by people who have limited capacity and sometimes need to recover from extreme events.
+
+If you want to show appreciation or help with Catherine's living costs, she has a personal [Patreon](https://patreon.com/whitequark). These donations will not impact the progress of the project since the limiting factor is health first and time second, but they are very much appreciated.
 
 ## What is Glasgow?
 
@@ -82,12 +90,14 @@ Debugging new applets can be hard, especially if bidirectional buses are involve
 
 ### ... with Linux?
 
-You will need git and Python 3.7 (or a newer version, in which case replace `3.7` with that version below). On a Debian or Ubuntu system these can be installed with:
+You will need git and Python 3.8 (or newer). On a Debian (11 or newer) or Ubuntu (20.04 or newer) system these can be installed with:
 
-    apt-get install --no-install-recommends git python3.7 python3-setuptools \
-      python3-libusb1 python3-aiohttp python3-bitarray python3-crcmod
+    apt install --no-install-recommends \
+      git python3 python3-setuptools python3-pip python3-libusb1 python3-aiohttp python3-bitarray
 
-You will also need Yosys and nextpnr-ice40, both from the master branch. Follow the setup instructions for [Yosys](https://github.com/yosysHQ/yosys/#setup) and [nextpnr](https://github.com/YosysHQ/nextpnr/#nextpnr-ice40).
+    python3 --version
+
+You will also need recent versions of Yosys and nextpnr-ice40, which can be installed from the [binary Tabby CAD Suite distribution](https://github.com/YosysHQ/oss-cad-suite-build#installation), or from separate sources ([Yosys](https://github.com/YosysHQ/yosys#installation) and [nextpnr-ice40](https://github.com/YosysHQ/nextpnr#nextpnr-ice40)).
 
 Obtain the source code:
 
@@ -101,9 +111,9 @@ Configure your system to allow unprivileged access (for anyone in the `plugdev` 
 Install the dependencies and the scripts for the current user:
 
     cd software
-    python3.7 setup.py develop --user
+    pip install --user --editable ./
 
-The scripts are placed in `$HOME/.local/bin`, so be sure to add that directory to the `PATH` environment variable; after this, you can run `glasgow` from a terminal. Instead of adjusting `PATH` it is also possible to use `python3.7 -m glasgow.cli`.
+The scripts are placed in `$HOME/.local/bin`, so be sure to add that directory to the `PATH` environment variable; after this, you can run `glasgow` from a terminal. Instead of adjusting `PATH` it is also possible to use `python3 -m glasgow.cli`.
 
 To update the source code, do:
 
@@ -150,9 +160,9 @@ Configure your system to allow unprivileged access (for anyone in the `plugdev` 
 
 Note that this udev rule will affect more devices than just Glasgow, since the Cypress VID:PID pair is shared.
 
-Plug in the newly assembled device. At this point, `lsusb | grep 04b4:8613` should list one entry. Assuming you are factory flashing a board revision C1, run:
+Plug in the newly assembled device. At this point, `lsusb | grep 04b4:8613` should list one entry. Assuming you are factory flashing a board revision C2, run:
 
-    glasgow factory --rev C1
+    glasgow factory --rev C2
 
 Done! At this point, `lsusb | grep 20b7:9db1` should list one entry.
 
